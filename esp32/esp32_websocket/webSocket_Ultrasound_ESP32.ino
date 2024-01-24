@@ -21,8 +21,8 @@ unsigned long timerDelay = 5000;
 
 const long soundSpeed = 343.2;
 long duration, distance;
-bool previousState = false;
-bool currentState = false;
+String previousState = "busy";
+String currentState = "free";
 
 const char ssl_cert[]  = \
   "-----BEGIN CERTIFICATE-----\n" \
@@ -60,9 +60,15 @@ const char ssl_cert[]  = \
 WiFiClientSecure client;
 WebsocketsClient webSocketClient;
 
-void sendWebSocketRequest(const String& state) {
+String getMacAddress () {
+  byte mac[6]; // the MAC address of your 
+  WiFi.macAddress(mac);
+  return String(mac[0], HEX) + ":" + String(mac[1], HEX) + ":" + String(mac[2], HEX) + ":" + String(mac[3], HEX) + ":" + String(mac[4], HEX) + ":" + String(mac[5], HEX);
+}
+
+void sendWebSocketRequest(const String& request) {
   if (client.connected()) {
-    webSocketClient.send("{\"state\":\"" + state + "\"}");
+    webSocketClient.send(request);
     Serial.println("Request sent.");
   }
 }
@@ -71,6 +77,8 @@ void setup() {
   Serial.begin(115200);
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
+  pinMode(ledRedPin, OUTPUT);
+  pinMode(ledGreenPin, OUTPUT);
   WiFi.begin(ssid, password);
   Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) {
@@ -111,21 +119,48 @@ void setup() {
 
             // Here answer to message
             const char* request = root["request"];
-
-            if (request != nullptr) {
                 if (strcmp(request, "name") == 0) {
-                    sendWebSocketRequest("{\"name\":\"send IP\"}");
+                    sendWebSocketRequest("{\"response\":\"state\",\"name\":\"" + getMacAddress() + "\"}");
                 } else if (strcmp(request, "state") == 0) {
-                    sendWebSocketRequest(currentState?"true":"false");
-                } else {
+                    String response = "{\"response\":\"state\",\"name\":\"" + getMacAddress() + "\",\"state\":\"";
+
+                    if (currentState != nullptr) {
+                        if (currentState == "busy") {
+                            response += "busy";
+                        } else if (currentState == "free") {
+                            response += "free";
+                        } else if (currentState == "reserved") {
+                            response += "reserved";
+                        } else {
+                            response += "error";
+                        }
+
+                        response += "\"}";
+                        sendWebSocketRequest(response);
+                    }
+                } else if (strcmp(request, "setState") == 0) {
+                    sendWebSocketRequest("{\"response\":\"setState\",\"name\":\"" + getMacAddress() + "\",\"state\":\"reserved\"}");
+                    currentState = "reserved";
+                    previousState = "reserved";
+                }  
+                  else {
                     sendWebSocketRequest("error");
                 }
-            }
-        }
-    }
+         }
+     }
 });
 }
 
+
+void switchLed(const String& color) {
+  if (color == "red") {
+    analogWrite(ledGreenPin, LOW);
+    analogWrite(ledRedPin, HIGH);
+  } else if (color == "green") {
+    digitalWrite(ledRedPin, LOW);
+    digitalWrite(ledGreenPin, HIGH);
+  }
+}
 
 void loop() {
   digitalWrite(trigPin, LOW);
@@ -142,19 +177,24 @@ void loop() {
   Serial.print(disp);
   Serial.println(" cm");
   
-  currentState = (distance <= 50);
-
-  if (currentState != previousState) {
-    if (currentState) {
-      sendWebSocketRequest("setOn");
-      digitalWrite(ledGreenPin, LOW);
-      digitalWrite(ledRedPin, HIGH);
+  if (distance <= 50) {
+    currentState = "busy";
+  } else {
+      if (previousState != "reserved") {
+        currentState = "free";
     } else {
-      sendWebSocketRequest("setOff");
-      digitalWrite(ledRedPin, LOW);
-      digitalWrite(ledGreenPin, HIGH);
+      currentState = "reserved";
+    }
+  }
+  
+  if (currentState != previousState) {
+    if (currentState == "busy" || currentState == "reserved") {
+      switchLed("red");
+    } else {
+      switchLed("green");
     }
     previousState = currentState;
+    sendWebSocketRequest("{\"info\":\"state\",\"name\":\"" + getMacAddress() + "\",\"state\":\""+ currentState + "\"}");
   }
 
   // Reset the timer after sending the WebSocket request
