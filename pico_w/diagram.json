@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-pi-pico-w",
+      "id": "pico"
+    },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -75.3, "left": -186.5, "attrs": {} },
+    {
+      "type": "wokwi-rgb-led",
+      "id": "rgb1",
+      "top": 109.6,
+      "left": -190.9,
+      "attrs": { "common": "anode" }
+    }
+  ],
+  "connections": [
+    [ "ultrasonic1:GND", "pico:GND.3", "black", [ "v0" ] ],
+    [ "pico:GP2", "ultrasonic1:ECHO", "green", [ "h0" ] ],
+    [ "pico:GP4", "ultrasonic1:TRIG", "green", [ "h0" ] ],
+    [ "pico:3V3", "ultrasonic1:VCC", "green", [ "h0" ] ],
+    [ "pico:GP6", "rgb1:B", "green", [ "h0" ] ],
+    [ "pico:GP7", "rgb1:G", "green", [ "h0" ] ],
+    [ "pico:GP8", "rgb1:R", "green", [ "h0" ] ],
+    [ "pico:GND.4", "rgb1:COM", "black", [ "h0" ] ]
+  ],
+  "dependencies": {}
+}
