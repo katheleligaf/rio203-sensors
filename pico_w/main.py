@@ -142,16 +142,23 @@ def check_sensor():
 
     print("Distance: " + disp + " cm")
 
-    current_state = distance <= 50
+    if distance <= 50 :
+        current_state = "busy"
+    else: 
+        if previous_state != "reserved":
+            current_state = "free"
+        else:
+            current_state = "reserved"
 
-    if current_state != previous_state:
-        if current_state:
+    if current_state != previous_state :
+        print("state changed, current state is :"+current_state)
+        if current_state == "busy" or current_state == "reserved":
             send_data_via_websocket({"info": "state", "state": current_state})
             switch_led("red")
         else:
             send_data_via_websocket({"info": "state", "state": current_state})
             switch_led("green")
-          
+            
         previous_state = current_state
 
 
