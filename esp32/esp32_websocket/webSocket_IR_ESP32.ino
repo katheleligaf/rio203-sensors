@@ -64,7 +64,11 @@ String getMacAddress () {
   return String(mac[0], HEX) + ":" + String(mac[1], HEX) + ":" + String(mac[2], HEX) + ":" + String(mac[3], HEX) + ":" + String(mac[4], HEX) + ":" + String(mac[5], HEX);
 }
 
-
+void sendJson(const JsonDocument doc) {
+  String out;
+  serializeJson(doc, out);
+  sendWebSocketRequest(out);
+}
 
 void sendWebSocketRequest(const String& request) {
   if (client.connected()) {
@@ -119,37 +123,36 @@ void setup() {
             Serial.println(data);
 
             // Deserialize json
-            JsonDocument root;
-            deserializeJson(root, data);
+            JsonDocument receivedObj;
+            deserializeJson(receivedObj, data);
 
             // Here answer to message
-            const char* request = root["request"];
-                if (strcmp(request, "name") == 0) {
-                    sendWebSocketRequest("{\"response\":\"state\",\"name\":\"" + getMacAddress() + "\"}");
-                } else if (strcmp(request, "state") == 0) {
-                    String response = "{\"response\":\"state\",\"name\":\"" + getMacAddress() + "\",\"state\":\"";
-
-                    if (currentState != nullptr) {
-                        if (currentState == "busy") {
-                            response += "busy";
-                        } else if (currentState == "free") {
-                            response += "free";
-                        } else if (currentState == "reserved") {
-                            response += "reserved";
-                        } else {
-                            response += "error";
-                        }
-
-                        response += "\"}";
-                        sendWebSocketRequest(response);
+            const char* request = receivedObj["request"];
+            JsonDocument toSendObj;
+            toSendObj["name"] = getMacAddress();
+            if (strcmp(request, "name") == 0) {
+                toSendObj["response"] = "name";
+                sendJson(toSendObj);
+            } else if (strcmp(request, "state") == 0) {
+                toSendObj["response"] = "state";
+                if (currentState != nullptr) {
+                    if (currentState == "busy" || currentState == "free" || currentState == "reserved")  {
+                        toSendObj["state"] = currentState;
+                    } else {
+                        toSendObj["state"] = "error";
+                    }
+                    
                     }
                 } else if (strcmp(request, "setState") == 0) {
-                    sendWebSocketRequest("{\"response\":\"setState\",\"name\":\"" + getMacAddress() + "\",\"state\":\"reserved\"}");
                     currentState = "reserved";
-                    previousState = "reserved";
+                    previousState = currentState;
+                    toSendObj["response"] = "setState";
+                    toSendObj["state"] = currentState;
+                    sendJson(toSendObj);
                 }  
                   else {
-                    sendWebSocketRequest("error");
+                    toSendObj["response"] = "error";
+                    sendJson(toSendObj);
                 }
          }
      }
@@ -184,8 +187,12 @@ void loop() {
     } else {
       switchLed("green");
     }
+    JsonDocument toSendObj;
+    toSendObj["name"] = getMacAddress();
+    toSendObj["info"] = "state";
+    toSendObj["state"] = currentState;
     previousState = currentState;
-    sendWebSocketRequest("{\"info\":\"state\",\"name\":\"" + getMacAddress() + "\",\"state\":\""+ currentState + "\"}");
+    sendJson(toSendObj);
   }
 
   // Reset the timer after sending the WebSocket request
