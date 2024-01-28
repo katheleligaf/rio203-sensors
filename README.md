@@ -18,7 +18,7 @@ sequenceDiagram
     Note over Server,Device: Device get it's ID
     Device -->> Server: {request: getId}
     Note left of Server: ⚠️ response only if ID exists
-    Server ->>Device : {response: setId, id: idPlace} 
+    Server ->>Device : {response: getId, id: idPlace} 
 ```
 
 
