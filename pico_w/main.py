@@ -40,7 +40,7 @@ led_blue_pin = Pin(6, Pin.OUT)
 
 last_time = 0
 timer_delay = 5000
-
+idPlace = -1
 sound_speed = 343.2
 previous_state = False
 current_state = False
@@ -52,6 +52,8 @@ def get_mac_address():
 
 
 def send_data_via_websocket(data):
+    if idPlace != -1 :
+        data["id"] = idPlace
     data["name"] = get_mac_address()
     stringed = ujson.dumps(data)
     async def send():
@@ -82,7 +84,12 @@ async def websocket_handler():
                     request = data["request"]
                     if request == "name":
                         response = { "response": "name"}
+                        if idPlace == -1 :
+                            request = { "request": "getId"}
+                            send_data_via_websocket(request)
                         send_data_via_websocket(response)
+                    elif request == "setId" :
+                        idPlace = data["id"]
                     elif request == "state":
                         response = {
                             "response":"state"
@@ -109,6 +116,10 @@ async def websocket_handler():
                     else:
                         # we do nothing
                         pass
+                elif "response" in data :
+                    response = data["response"]
+                    if response == "getId":
+                        idPlace == data["id"]
             else:
                 return
     except Exception as e:
@@ -152,13 +163,14 @@ def check_sensor():
 
     if current_state != previous_state :
         print("state changed, current state is :"+current_state)
-        if current_state == "busy" or current_state == "reserved":
-            send_data_via_websocket({"info": "state", "state": current_state})
+        if current_state == "busy" :
             switch_led("red")
+        elif current_state == "reserved" :
+            switch_led("blue")
         else:
-            send_data_via_websocket({"info": "state", "state": current_state})
             switch_led("green")
-            
+
+        send_data_via_websocket({"info": "state", "state": current_state})    
         previous_state = current_state
 
 
