@@ -11,6 +11,7 @@ using namespace websockets;
 const int avoidPin = 5;
 const int ledRedPin = 23;
 const int ledGreenPin = 19;
+int idPlace = -1;
 
 const String serverName = "parking-rio.rezel.net";
 char path[] = "/";
@@ -62,6 +63,33 @@ String getMacAddress () {
   byte mac[6]; // the MAC address of your 
   WiFi.macAddress(mac);
   return String(mac[0], HEX) + ":" + String(mac[1], HEX) + ":" + String(mac[2], HEX) + ":" + String(mac[3], HEX) + ":" + String(mac[4], HEX) + ":" + String(mac[5], HEX);
+}
+
+int getIdPlace () {
+  JsonDocument idRequestObj;
+  idRequestObj["request"] = "getId";
+  sendJson(idRequestObj);
+
+  while(!webSocketClient.available()){
+    delay(1000);
+  }
+  webSocketClient.onMessage([&](WebsocketsMessage message) {
+    if (client.connected()) {
+      String data = message.data();
+      if (data.length() > 0) {
+        Serial.print("Received data: ");
+        Serial.println(data);
+  
+        // Deserialize json
+        JsonDocument receivedObj;
+        deserializeJson(receivedObj, data);
+        const char* response = receivedObj["response"];
+        if(strcmp(response, "getId")==0) {
+          return receivedObj["id"];
+        }
+      }
+    }
+  });
 }
 
 void sendJson(const JsonDocument doc) {
@@ -130,9 +158,15 @@ void setup() {
             const char* request = receivedObj["request"];
             JsonDocument toSendObj;
             toSendObj["name"] = getMacAddress();
+            if (idPlace == -1){
+              idPlace = getIdPlace();
+            }
+            toSendObj["id"] = idPlace;
             if (strcmp(request, "name") == 0) {
                 toSendObj["response"] = "name";
                 sendJson(toSendObj);
+            } else if (strcmp(request, "setId") == 0) {
+              idPlace = receivedObj["id"];
             } else if (strcmp(request, "state") == 0) {
                 toSendObj["response"] = "state";
                 if (currentState != nullptr) {
@@ -166,6 +200,9 @@ void switchLed(const String& color) {
   } else if (color == "green") {
     digitalWrite(ledRedPin, LOW);
     digitalWrite(ledGreenPin, HIGH);
+  } else if (color == "orange") {
+    digitalWrite(ledRedPin, HIGH);
+    digitalWrite(ledGreenPin, HIGH);
   }
 }
 
@@ -182,11 +219,14 @@ void loop() {
   }
   
   if (currentState != previousState) {
-    if (currentState == "busy" || currentState == "reserved") {
+    if (currentState == "busy") {
       switchLed("red");
+    } else if (currentState == "reserved") {
+      switchLed("orange");
     } else {
       switchLed("green");
     }
+    
     JsonDocument toSendObj;
     toSendObj["name"] = getMacAddress();
     toSendObj["info"] = "state";
