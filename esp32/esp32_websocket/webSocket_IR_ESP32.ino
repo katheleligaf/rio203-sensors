@@ -66,15 +66,14 @@ String getMacAddress() {
          String(mac[4], HEX) + ":" + String(mac[5], HEX);
 }
 
-void sendJson(const JsonDocument doc) {
+void sendJson(JsonDocument doc) {
   if (idPlace != -1) {
     doc["id"] = idPlace;
   }
-  doc["name"] = getMacAddress();
-  String json_str;
+  doc["name"] = getMacAddress();  String json_str;
   serializeJson(doc, json_str);
   if (client.connected()) {
-    webSocketClient.send(request);
+    webSocketClient.send(json_str);
     Serial.println("Request sent.");
   }
 }
@@ -133,7 +132,7 @@ void setup() {
             sendJson(idRequestObj);
           }
           sendJson(toSendObj);
-        } else if (strcmp(response, "getId") == 0) {
+        } else if (strcmp(request, "getId") == 0) {
           idPlace = receivedObj["id"];
         } else if (strcmp(request, "setId") == 0) {
           idPlace = receivedObj["id"];
