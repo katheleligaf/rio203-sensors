@@ -123,6 +123,7 @@ void setup() {
 
         // Here answer to message
         const char *request = receivedObj["request"];
+        const char *response = receivedObj["response"];
         JsonDocument toSendObj;
         if (strcmp(request, "name") == 0) {
           toSendObj["response"] = "name";
@@ -132,7 +133,7 @@ void setup() {
             sendJson(idRequestObj);
           }
           sendJson(toSendObj);
-        } else if (strcmp(request, "getId") == 0) {
+        } else if (strcmp(response, "getId") == 0) {
           idPlace = receivedObj["id"];
         } else if (strcmp(request, "setId") == 0) {
           idPlace = receivedObj["id"];
