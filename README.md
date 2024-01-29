@@ -35,7 +35,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     Note over Server,Device: When car hover device
-    Device -->> Server: {request: info, name: ADRESSE_MAC, id: idPlace}
+    Device -->> Server: {request: info, name: ADRESSE_MAC, id: idPlace, state: CURRENT_STATE}
 ```
 
 
