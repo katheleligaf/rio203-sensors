@@ -10,12 +10,12 @@ sequenceDiagram
     Note over Server,Device: Device connect to server
     Server ->> Device: {request: name}
     Device -->> Server: {response: name, name: ADRESSE_MAC, id: idPlace}
-    Note right of Device: ⚠️ send ID only only if exists
+    Note right of Device: ⚠️ send ID only if it exists
 ```
 
 ```mermaid
 sequenceDiagram
-    Note over Server,Device: Device get it's ID
+    Note over Server,Device: Device get its ID
     Device -->> Server: {request: getId}
     Note left of Server: ⚠️ response only if ID exists
     Server ->>Device : {response: getId, id: idPlace} 
@@ -34,7 +34,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    Note over Server,Device: When car hover device
+    Note over Server,Device: When car hover over device
     Device -->> Server: {request: info, name: ADRESSE_MAC, id: idPlace, state: CURRENT_STATE}
 ```
 
