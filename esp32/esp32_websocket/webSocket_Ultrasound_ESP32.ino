@@ -70,6 +70,89 @@ String getMacAddress() {
          String(mac[4], HEX) + ":" + String(mac[5], HEX);
 }
 
+void setupEvent(){
+  webSocketClient.onEvent(onEventsCallback);
+
+
+  webSocketClient.onMessage([&](WebsocketsMessage message) {
+    if (client.connected()) {
+      String data = message.data();
+
+      if (data.length() > 0) {
+        Serial.print("Received data: ");
+        Serial.println(data);
+
+        // Deserialize json
+        JsonDocument receivedObj;
+        deserializeJson(receivedObj, data);
+
+        // Here answer to message
+        String request = receivedObj["request"];
+        String response = receivedObj["response"];
+        
+        JsonDocument toSendObj;
+        if (request == "name") {
+          toSendObj["response"] = "name";
+          if (idPlace == -1) {
+            JsonDocument idRequestObj;
+            idRequestObj["request"] = "getId";
+            sendJson(idRequestObj);
+          }
+          sendJson(toSendObj);
+        } else if (response == "getId") {
+          idPlace = (int) receivedObj["id"].as<int>();
+        } else if (request == "setId") {
+          idPlace = (int) receivedObj["id"].as<int>();
+        } else if (request == "state") {
+          toSendObj["response"] = "state";
+          if (currentState != nullptr) {
+            if (currentState == "busy" || currentState == "free" ||
+                currentState == "reserved") {
+              toSendObj["state"] = currentState;
+            } else {
+              toSendObj["state"] = "error";
+            }
+          }
+        } else if (request == "setState") {
+          currentState = "reserved";
+          previousState = currentState;
+          toSendObj["response"] = "setState";
+          toSendObj["state"] = currentState;
+          sendJson(toSendObj);
+        } else {
+          toSendObj["response"] = "error";
+          sendJson(toSendObj);
+        }
+      }
+    }
+  });
+}
+
+void connect(){
+  bool connected = webSocketClient.connect("wss://parking-rio.rezel.net/api");
+  Serial.println("Waiting for handshake.");
+  if (connected) {
+    Serial.println("Connected");
+  } else {
+    Serial.println("Connection failed.");
+  }
+}
+
+
+void onEventsCallback(WebsocketsEvent event, String data) {
+    if(event == WebsocketsEvent::ConnectionOpened) {
+        Serial.println("Connnection Opened");
+    } else if(event == WebsocketsEvent::ConnectionClosed) {
+        Serial.println("Connnection Closed");
+        connect();
+        setupEvent();
+    } else if(event == WebsocketsEvent::GotPing) {
+        Serial.println("Got a Ping!");
+    } else if(event == WebsocketsEvent::GotPong) {
+        Serial.println("Got a Pong!");
+    }
+}
+
 void sendJson(JsonDocument doc) {
   if (idPlace != -1) {
     doc["id"] = idPlace;
@@ -78,9 +161,13 @@ void sendJson(JsonDocument doc) {
   serializeJson(doc, json_str);
   if (client.connected()) {
     webSocketClient.send(json_str);
-    Serial.println("Request sent.");
+    Serial.println("Request sent: "+ json_str);
   }
 }
+
+
+
+
 
 void setup() {
   Serial.begin(115200);
@@ -106,65 +193,9 @@ void setup() {
   }
   Serial.println("Client connected.");
   webSocketClient.setCACert(ssl_cert);
-  bool connected = webSocketClient.connect("wss://parking-rio.rezel.net/api");
-  Serial.println("Waiting for handshake.");
-  if (connected) {
-    Serial.println("Connected");
-  } else {
-    Serial.println("Connection failed.");
-  }
-
-  webSocketClient.onMessage([&](WebsocketsMessage message) {
-    if (client.connected()) {
-      String data = message.data();
-
-      if (data.length() > 0) {
-        Serial.print("Received data: ");
-        Serial.println(data);
-
-        // Deserialize json
-        JsonDocument receivedObj;
-        deserializeJson(receivedObj, data);
-
-        // Here answer to message
-        const char *request = receivedObj["request"];
-        const char *response = receivedObj["response"];
-        JsonDocument toSendObj;
-        if (strcmp(request, "name") == 0) {
-          toSendObj["response"] = "name";
-          if (idPlace == -1) {
-            JsonDocument idRequestObj;
-            idRequestObj["request"] = "getId";
-            sendJson(idRequestObj);
-          }
-          sendJson(toSendObj);
-        } else if (strcmp(response, "getId") == 0) {
-          idPlace = receivedObj["id"];
-        } else if (strcmp(request, "setId") == 0) {
-          idPlace = receivedObj["id"];
-        } else if (strcmp(request, "state") == 0) {
-          toSendObj["response"] = "state";
-          if (currentState != nullptr) {
-            if (currentState == "busy" || currentState == "free" ||
-                currentState == "reserved") {
-              toSendObj["state"] = currentState;
-            } else {
-              toSendObj["state"] = "error";
-            }
-          }
-        } else if (strcmp(request, "setState") == 0) {
-          currentState = "reserved";
-          previousState = currentState;
-          toSendObj["response"] = "setState";
-          toSendObj["state"] = currentState;
-          sendJson(toSendObj);
-        } else {
-          toSendObj["response"] = "error";
-          sendJson(toSendObj);
-        }
-      }
-    }
-  });
+  
+  setupEvent();
+  connect();
 }
 
 void switchLed(const String &color) {
@@ -172,11 +203,11 @@ void switchLed(const String &color) {
     analogWrite(ledGreenPin, LOW);
     analogWrite(ledRedPin, HIGH);
   } else if (color == "green") {
-    digitalWrite(ledRedPin, LOW);
-    digitalWrite(ledGreenPin, HIGH);
+    analogWrite(ledRedPin, LOW);
+    analogWrite(ledGreenPin, HIGH);
   } else if (color == "orange") {
-    digitalWrite(ledRedPin, HIGH);
-    digitalWrite(ledGreenPin, HIGH);
+    analogWrite(ledRedPin, HIGH);
+    analogWrite(ledGreenPin, HIGH);
   }
 }
 
@@ -209,11 +240,11 @@ void loop() {
     if (currentState == "busy") {
       switchLed("red");
     } else if (currentState == "reserved") {
-      switchLed("orange");
+      switchLed("red");
     } else {
       switchLed("green");
     }
-    
+    Serial.println(currentState);
     JsonDocument toSendObj;
     toSendObj["request"] = "info";
     toSendObj["state"] = currentState;
